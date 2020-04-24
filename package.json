@@ -25,7 +25,6 @@
   "scripts": {
     "demo": "./node_modules/.bin/webpack-dev-server --port 10444 --config webpack.demo.config.js",
     "build": "npm run _webpack && npm run typings",
-    "build-all": "npm run _webpack && BUNDLE_PEERS=true npm run _webpack",
     "build-examples": "./node_modules/.bin/webpack --config webpack.demo.config.js",
     "test": "npm run build-all && npm run lint",
     "typings": "npm run _typings-tsc && npm run _typings-dts-bundle",
@@ -40,8 +39,7 @@
     "lodash": "~4.17.10",
     "n3": "~0.10.0",
     "rdf-ext": "~0.3.0",
-    "webcola": "~3.3.8",
-    "whatwg-fetch": "~2.0.2"
+    "webcola": "~3.3.8"
   },
   "peerDependencies": {
     "react": "^15.0.0 || ^16.0.0",
@@ -52,10 +50,8 @@
     "@types/lodash": "4.14.108",
     "@types/react": "15.6.9",
     "@types/react-dom": "15.5.8",
-    "canvg-fixed": "1.0.0",
     "css-loader": "1.0.0",
     "dts-bundle": "0.7.2",
-    "es6-promise": "4.2.4",
     "html-webpack-plugin": "3.2.0",
     "node-sass": "4.13.0",
     "raw-loader": "0.5.1",

@@ -1,18 +1,10 @@
 var path = require('path');
 var HtmlWebpackPlugin = require('html-webpack-plugin');
 
-var SUPPORT_IE = process.env.SUPPORT_IE;
 var SPARQL_ENDPOINT = process.env.SPARQL_ENDPOINT;
 var WIKIDATA_ENDPOINT = process.env.WIKIDATA_ENDPOINT;
 var LOD_PROXY = process.env.LOD_PROXY;
 var PROP_SUGGEST = process.env.PROP_SUGGEST;
-
-var aliases = {};
-if (!SUPPORT_IE) {
-    const emptyModule = path.resolve(__dirname, 'src', 'ontodia', 'emptyModule.ts');
-    aliases['canvg-fixed'] = emptyModule;
-    aliases['es6-promise/auto'] = emptyModule;
-}
 
 var examplesDir = path.join(__dirname, 'examples');
 var htmlTemplatePath = path.join(__dirname, 'examples', 'template.ejs');
@@ -35,7 +27,6 @@ module.exports = {
         toolbarCustomization: path.join(examplesDir, 'toolbarCustomization.tsx'),
     },
     resolve: {
-        alias: aliases,
         extensions: ['.ts', '.tsx', '.js'],
     },
     module: {

@@ -2,21 +2,11 @@ const path = require('path');
 
 // if BUNDLE_PEERS is set, we'll produce bundle with all dependencies
 const BUNDLE_PEERS = Boolean(process.env.BUNDLE_PEERS);
-// always include IE support in full bundle
-const SUPPORT_IE = BUNDLE_PEERS || Boolean(process.env.SUPPORT_IE);
-
-const aliases = {};
-if (!SUPPORT_IE) {
-    const emptyModule = path.resolve(__dirname, 'src', 'ontodia', 'emptyModule.ts');
-    aliases['canvg-fixed'] = emptyModule;
-    aliases['es6-promise/auto'] = emptyModule;
-}
 
 module.exports = {
-    mode: BUNDLE_PEERS ? 'production' : 'none',
+    mode: 'production',
     entry: './src/ontodia/index.ts',
     resolve: {
-        alias: aliases,
         extensions: ['.ts', '.tsx', '.js'],
     },
     module: {
@@ -34,15 +24,13 @@ module.exports = {
     output: {
         path: path.join(__dirname, 'dist'),
         filename: (
-            BUNDLE_PEERS ? 'ontodia-full.min.js' :
-            SUPPORT_IE ? 'ontodia-ie.js' :
-            'ontodia.js'
+            BUNDLE_PEERS ? 'ontodia-full.min.js' : 'ontodia.js'
         ),
         library: 'Ontodia',
         libraryTarget: 'umd',
     },
     devtool: 'source-map',
-    externals: BUNDLE_PEERS ? [] : [
+    externals: [
         'd3-color',
         'file-saverjs',
         'lodash',
@@ -51,7 +39,6 @@ module.exports = {
         'react',
         'react-dom',
         'webcola',
-        'whatwg-fetch',
     ],
     performance: {
         maxEntrypointSize: 2048000,

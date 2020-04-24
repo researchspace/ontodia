@@ -1,9 +1,5 @@
 require('../../styles/main.scss');
 
-require('whatwg-fetch');
-require('es6-promise/auto');
-require('./viewUtils/polyfills');
-
 export * from './customization/props';
 export * from './customization/templates';
 

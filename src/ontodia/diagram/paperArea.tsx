@@ -2,7 +2,6 @@ import * as React from 'react';
 
 import { Debouncer, Cancellation, animateInterval, delay, easeInOutBezier } from '../viewUtils/async';
 import { EventObserver, Events, EventSource, PropertyChange } from '../viewUtils/events';
-import { isIE11 } from '../viewUtils/polyfills';
 import { PropTypes } from '../viewUtils/react';
 import { ToSVGOptions, ToDataURLOptions, toSVG, toDataURL, fitRectKeepingAspectRatio } from '../viewUtils/toSvg';
 
@@ -277,7 +276,7 @@ export class PaperArea extends React.Component<PaperAreaProps, State> {
         this.area.addEventListener('dragover', this.onDragOver);
         this.area.addEventListener('drop', this.onDragDrop);
         this.area.addEventListener('scroll', this.onScroll);
-        this.area.addEventListener('wheel', this.onWheel, isIE11() ? false : {passive: false});
+        this.area.addEventListener('wheel', this.onWheel, {passive: false});
     }
 
     componentDidUpdate(prevProps: PaperAreaProps, prevState: State) {

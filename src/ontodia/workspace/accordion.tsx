@@ -104,7 +104,7 @@ export class Accordion extends React.Component<Props, State> {
         const defaultProps = new Map<number, DefaultProps>();
         React.Children.forEach(children, (child, index) => {
             if (typeof child !== 'object') { return; }
-            const {defaultSize, defaultCollapsed, collapsedSize, minSize} = child.props;
+            const {defaultSize, defaultCollapsed, collapsedSize, minSize} = (child as React.ReactElement).props;
             // enables the scrollbar in the accordion if at least one item has min size
             if (minSize !== undefined) {
                 this.isScrollable = true;
@@ -197,7 +197,7 @@ export class Accordion extends React.Component<Props, State> {
                 onDragHandle: lastChild ? undefined : (dx, dy) => this.onDragHandle(index, dx, dy),
                 onEndDragHandle: this.onEndDragHandle,
             };
-            return React.cloneElement(child, additionalProps);
+            return React.cloneElement(child as React.ReactElement, additionalProps);
         });
     }
 

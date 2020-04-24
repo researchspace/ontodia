@@ -2,19 +2,6 @@ import { uniqueId } from 'lodash';
 
 import { DiagramModel } from '../diagram/model';
 import { Rect, Vector, boundsOf } from '../diagram/geometry';
-import { isIE11 } from './polyfills';
-import { htmlToSvg } from './htmlToSvg';
-
-type CanvgRender = (canvas: HTMLCanvasElement, svg: string, options?: CanvgOptions) => void;
-interface CanvgOptions {
-    offsetX?: number;
-    offsetY?: number;
-    scaleWidth?: number;
-    scaleHeight?: number;
-    ignoreDimensions?: boolean;
-    ignoreClear?: boolean;
-}
-const canvg = require<CanvgRender>('canvg-fixed');
 
 const SVG_NAMESPACE: 'http://www.w3.org/2000/svg' = 'http://www.w3.org/2000/svg';
 
@@ -24,11 +11,7 @@ export interface ToSVGOptions {
     contentBox: Rect;
     getOverlayedElement: (id: string) => HTMLElement;
     preserveDimensions?: boolean;
-    convertImagesToDataUris?: boolean;
-    blacklistedCssAttributes?: string[];
     elementsToRemoveSelector?: string;
-    mockImages?: boolean;
-    watermarkSvg?: string;
 }
 
 interface Bounds {
@@ -44,14 +27,14 @@ interface Bounds {
 const FOREIGN_OBJECT_SIZE_PADDING = 2;
 const BORDER_PADDING = 100;
 
-export function toSVG(options: ToSVGOptions): Promise<string> {
-    return exportSVG(options).then(svg => new XMLSerializer().serializeToString(svg));
+export async function toSVG(options: ToSVGOptions): Promise<string> {
+    const svg = await exportSVG(options);
+    return new XMLSerializer().serializeToString(svg);
 }
 
-function exportSVG(options: ToSVGOptions): Promise<SVGElement> {
-    const {contentBox: bbox, watermarkSvg} = options;
+async function exportSVG(options: ToSVGOptions): Promise<SVGElement> {
+    const {contentBox: bbox} = options;
     const {svgClone, imageBounds} = clonePaperSvg(options, FOREIGN_OBJECT_SIZE_PADDING);
-    if (isIE11()) { clearAttributes(svgClone); }
 
     const paddedWidth = bbox.width + 2 * BORDER_PADDING;
     const paddedHeight = bbox.height + 2 * BORDER_PADDING;
@@ -72,143 +55,154 @@ function exportSVG(options: ToSVGOptions): Promise<SVGElement> {
     };
     svgClone.setAttribute('viewBox', `${viewBox.x} ${viewBox.y} ${viewBox.width} ${viewBox.height}`);
 
-    addWatermark(svgClone, viewBox, watermarkSvg);
-
     const images: HTMLImageElement[] = [];
-    if (!isIE11()) {
-        const nodes = svgClone.querySelectorAll('img');
-        foreachNode(nodes, node => images.push(node));
-    }
+    const nodes = svgClone.querySelectorAll('img');
+    foreachNode(nodes, node => images.push(node));
 
-    const convertingImages = Promise.all(images.map(img => {
+    const convertingImages = Promise.all(images.map(async img => {
         const exportKey = img.getAttribute('export-key');
         img.removeAttribute('export-key');
         if (exportKey) {
             const {width, height} = imageBounds[exportKey];
             img.setAttribute('width', width.toString());
             img.setAttribute('height', height.toString());
-            if (!options.convertImagesToDataUris) {
-                return Promise.resolve();
-            }
-            return exportAsDataUri(img).then(dataUri => {
+            try {
+                const dataUri = await exportImageAsDataUri(img);
                 // check for empty svg data URI which happens when mockJointXHR catches an exception
                 if (dataUri && dataUri !== 'data:image/svg+xml,') {
                     img.src = dataUri;
                 }
-            }).catch(err => {
+            }
+            catch (err) {
                 // tslint:disable-next-line:no-console
                 console.warn('Failed to export image: ' + img.src, err);
-            });
+            }
         } else {
             return Promise.resolve();
         }
     }));
 
-    return convertingImages.then(() => {
-        // workaround to include only ontodia-related stylesheets
-        const exportedCssText = extractCSSFromDocument(svgClone);
-
-        const defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
-        defs.innerHTML = `<style>${exportedCssText}</style>`;
-        svgClone.insertBefore(defs, svgClone.firstChild);
-
-        if (options.elementsToRemoveSelector) {
-            foreachNode(svgClone.querySelectorAll(options.elementsToRemoveSelector),
-                node => node.remove());
-        }
-
-        return svgClone;
-    });
-}
-
-function addWatermark(svg: SVGElement, viewBox: Rect, watermarkSvg: string) {
-    const WATERMARK_CLASS = 'ontodia-exported-watermark';
-    const WATERMARK_MAX_WIDTH = 120;
-    const WATERMARK_PADDING = 20;
-
-    const image = document.createElementNS(SVG_NAMESPACE, 'image');
-    image.setAttributeNS('http://www.w3.org/1999/xlink', 'href', watermarkSvg);
-    image.setAttribute('class', WATERMARK_CLASS);
-
-    const width = Math.min(viewBox.width * 0.2, WATERMARK_MAX_WIDTH);
-    const x = viewBox.x + viewBox.width - width - WATERMARK_PADDING;
-    const y = viewBox.y + WATERMARK_PADDING;
-
-    image.setAttribute('x', x.toString());
-    image.setAttribute('y', y.toString());
-    image.setAttribute('width', width.toString());
-    image.setAttribute('opacity', '0.3');
-
-    svg.insertBefore(image, svg.firstChild);
-}
-
-function clearAttributes(svg: SVGElement) {
-    const availableIds: { [ key: string ]: boolean } = {};
-    const prohibitedIds: { [ key: string ]: boolean } = {};
-    const defss = svg.querySelectorAll('defs');
-    foreachNode(defss, defs => {
-        foreachNode(defs.childNodes, def => {
-            const id = (def as SVGElement).getAttribute('id');
-            if (id) {
-                availableIds[id] = true;
-                if (isIE11() && def instanceof SVGFilterElement) {
-                    availableIds[id] = false;
-                }
-            }
-        });
-    });
-    const paths = svg.querySelectorAll('*');
-    foreachNode(paths, path => {
-        const markerStart = extractId(path.getAttribute('marker-start'));
-        if (markerStart && !availableIds[markerStart]) {
-            path.removeAttribute('marker-start');
-        }
-        const markerEnd = extractId(path.getAttribute('marker-end'));
-        if (markerEnd && !availableIds[markerEnd]) {
-            path.removeAttribute('marker-end');
-        }
-        const filterId = extractId(path.getAttribute('filter'));
-        if (filterId && !availableIds[filterId]) {
-            path.removeAttribute('filter');
-        }
-    });
-
-    function extractId(attributeValue: string) {
-        if (attributeValue) {
-            if (isIE11()) {
-                return (attributeValue.match(/#(.*?)"/) || [])[1];
-            } else {
-                return (attributeValue.match(/#(.*?)\)/) || [])[1];
-            }
-        } else {
-            return undefined;
-        }
+    await convertingImages;
+    const defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
+    defs.innerHTML = await extractStylesheets();
+    svgClone.insertBefore(defs, svgClone.firstChild);
+    if (options.elementsToRemoveSelector) {
+        foreachNode(svgClone.querySelectorAll(options.elementsToRemoveSelector), node => node.remove());
     }
+    return svgClone;
 }
 
-function extractCSSFromDocument(targetSubtree: Element): string {
-    const exportedRules = new Set<CSSStyleRule>();
+async function extractStylesheets() {
+    const styleSheets: String[] = [];
+    // we extract all styles from current html document because there is no way to
+    // reliably get only styles that are applicable to diagram elements.
+    //
+    // for more information about used DOM API see
+    // https://developer.mozilla.org/en-US/docs/Web/API/CSSStyleSheet#Notes
     for (let i = 0; i < document.styleSheets.length; i++) {
-        let rules: CSSRuleList;
-        try {
-            const cssSheet = document.styleSheets[i] as CSSStyleSheet;
-            rules = cssSheet.cssRules || cssSheet.rules;
-            if (!rules) { continue; }
-        } catch (e) { continue; }
+        const styleSheet = document.styleSheets[i];
+        const ownerNode = styleSheet.ownerNode;
+        let styleText;
 
-        for (let j = 0; j < rules.length; j++) {
-            const rule = rules[j];
-            if (rule instanceof CSSStyleRule) {
-                if (targetSubtree.querySelector(rule.selectorText)) {
-                    exportedRules.add(rule);
-                }
-            }
+        // we remember url of the stylesheet because we then need to use it to resolve all
+        // relative URLs inside the stylesheet
+        let styleSheetURL;
+        if (ownerNode instanceof HTMLLinkElement) {
+            // if stylesheet is coming from <link> element then we need to get the content on our own
+            const url = ownerNode.href;
+            const request = new Request(url);
+            // this will give us absolute URL of the stylesheet
+            styleSheetURL = request.url;
+            styleText =
+                await fetch(request).then(
+                    response => {
+                        if (!response.ok) {
+                            throw new Error(
+                                `Ontodia was not able to fetch stylesheet: ${url}`
+                            );
+                        }
+                        return response.text();
+                    }
+                );
+        } else if (ownerNode instanceof HTMLStyleElement) {
+            // if it is from <style> then we can just grab innerHTML
+            styleText = ownerNode.innerHTML;
+            // in case of <style> we assume that stylesheet URL is current document
+            styleSheetURL = document.baseURI;
+        } else {
+            // We assume that all style-sheets in the document are coming from <style> or <link>,
+            // currently there is no support for css @import rules.
+            throw new Error('Current HTML document contains css stylesheet with @import rule, that is currently not supported by ontodia. See ontodia sources toSvg.ts#extractStylesheets');
+        }
+
+        styleSheets.push(
+            await embedExternalResources(styleSheetURL, styleText)
+        );
+    }
+
+    return `<style>${styleSheets.join('\n')}</style>`;
+}
+
+/**
+ * Embeds all referenced resources in CSS as data urls.
+ *
+ * @param baseUrl - stylesheet URL for relative link resolution
+ * @param styles - actual stylesheet text
+ *
+ * @returns stylesheet with url(*) resolved as embedded data-uris
+ */
+async function embedExternalResources(baseUrl: string, styles: string) {
+    const extractFontUrlRegex = /url\((.*?)\)/gm;
+
+    const fontUrls: Array<string> = [];
+    let m;
+    while ((m = extractFontUrlRegex.exec(styles)) !== null) {
+        if (m.index === extractFontUrlRegex.lastIndex) {
+            extractFontUrlRegex.lastIndex++;
+        }
+
+        // 0 is the whole match, 1 is the first matching group (in our case everything inside url())
+        const urlStr = m[1];
+        // if URL is data url then we don't need to do anything with it
+        if (urlStr.startsWith('data:')) {
+            // it is data-url so just ignore it;
+        } else {
+            fontUrls.push(urlStr);
         }
     }
 
-    const exportedCssTexts: string[] = [];
-    exportedRules.forEach(rule => exportedCssTexts.push(rule.cssText));
-    return exportedCssTexts.join('\n');
+    // fetch all fonts as data uri
+    const fonts =
+        await Promise.all(
+            fontUrls.map(
+                urlStr => {
+                    // the urls that we extracted
+                    let fontUrl = urlStr;
+
+                    // URL can be represented in three ways:
+                    //    <a_css_property>: url("http://mysite.example.com/mycursor.png")
+                    //    <a_css_property>: url('http://mysite.example.com/mycursor.png')
+                    //    <a_css_property>: url(http://mysite.example.com/mycursor.png)
+                    //
+                    // see https://developer.mozilla.org/en-US/docs/Web/CSS/url#Syntax
+                    //
+                    // so we need to strip quotes to get the actual URL
+                    if (
+                        (urlStr.startsWith('"') && urlStr.endsWith('"')) ||
+                            (urlStr.startsWith("'") && urlStr.endsWith("'"))
+                    ) {
+                        // strip double or single quotes
+                        fontUrl = urlStr.slice(1, -1);
+                    }
+                    return exportAsDataUri(new URL(fontUrl, baseUrl).href);
+                }
+            )
+        );
+
+    // replace all urls with data uris
+    return fontUrls.reduce(
+        (s, url, i) => s.replace(url, '"' + fonts[i] + '"'), styles
+    );
 }
 
 function clonePaperSvg(options: ToSVGOptions, elementSizePadding: number): {
@@ -232,6 +226,9 @@ function clonePaperSvg(options: ToSVGOptions, elementSizePadding: number): {
     const viewport = findViewport();
     viewport.removeAttribute('transform');
 
+    // TODO, needed for proper export of the diagram with custom app as of April 2020, remove when we refactor ResearchSpace styling
+    viewport.setAttribute('class', 'rs-application');
+
     const imageBounds: { [path: string]: Bounds } = {};
 
     for (const element of model.elements) {
@@ -244,12 +241,8 @@ function clonePaperSvg(options: ToSVGOptions, elementSizePadding: number): {
         elementRoot.setAttribute('class', 'ontodia-exported-element');
 
         let newRoot;
-        if (isIE11()) {
-            newRoot = htmlToSvg(overlayedView, [], options.mockImages);
-        } else {
-            newRoot = document.createElementNS(SVG_NAMESPACE, 'foreignObject');
-            newRoot.appendChild(overlayedViewContent);
-        }
+        newRoot = document.createElementNS(SVG_NAMESPACE, 'foreignObject');
+        newRoot.appendChild(overlayedViewContent);
         const {x, y, width, height} = boundsOf(element);
         newRoot.setAttribute('transform', `translate(${x},${y})`);
         newRoot.setAttribute('width', (width + elementSizePadding).toString());
@@ -258,7 +251,6 @@ function clonePaperSvg(options: ToSVGOptions, elementSizePadding: number): {
         elementRoot.appendChild(newRoot);
         viewport.appendChild(elementRoot);
 
-        const originalNodes = (overlayedView.firstChild as HTMLElement).querySelectorAll('img');
         const clonedNodes = overlayedViewContent.querySelectorAll('img');
 
         foreachNode(overlayedView.querySelectorAll('img'), (img, index) => {
@@ -274,48 +266,25 @@ function clonePaperSvg(options: ToSVGOptions, elementSizePadding: number): {
     return {svgClone, imageBounds};
 }
 
-function exportAsDataUri(original: HTMLImageElement): Promise<string> {
+function exportImageAsDataUri(original: HTMLImageElement): Promise<string> {
     const url = original.src;
     if (!url || url.startsWith('data:')) {
         return Promise.resolve(url);
     }
 
-    return loadCrossOriginImage(original.src).then(image => {
-        const canvas = document.createElement('canvas');
-        canvas.width = image.width;
-        canvas.height = image.height;
-
-        const context = canvas.getContext('2d');
-        context.drawImage(image, 0, 0);
-
-        // match extensions like htttp://example.com/images/foo.JPG&w=200
-        const extensionMatch = url.match(/\.([a-zA-Z0-9]+)[^\.a-zA-Z0-9]?[^\.]*$/);
-        const extension = extensionMatch ? extensionMatch[1].toLowerCase() : 'png';
-
-        try {
-            const mimeType = 'image/' + (extension === 'jpg' ? 'jpeg' : extension);
-            const dataUri = canvas.toDataURL(mimeType);
-            return Promise.resolve(dataUri);
-        } catch (e) {
-            if (extension !== 'svg') {
-                return Promise.reject('Failed to convert image to data URI');
-            }
-            return fetch(url)
-                .then(response => response.text())
-                .then(svg => svg.length > 0 ? ('data:image/svg+xml,' + encodeURIComponent(svg)) : '');
-        }
-    });
+    return exportAsDataUri(url);
 }
 
-function loadCrossOriginImage(src: string): Promise<HTMLImageElement> {
-    const image = new Image();
-    image.crossOrigin = 'anonymous';
-    const promise = new Promise<HTMLImageElement>((resolve, reject) => {
-        image.onload = () => resolve(image);
-        image.onerror = ev => reject(ev);
+async function exportAsDataUri(url: string) {
+    const result = await fetch(url);
+    const blob = await result.blob();
+    return new Promise<string>(resolve => {
+        let reader = new FileReader();
+        reader.onload = () => {
+            resolve((reader.result as string));
+        };
+        reader.readAsDataURL(blob);
     });
-    image.src = src;
-    return promise;
 }
 
 function foreachNode<T extends Node>(nodeList: NodeListOf<T>, callback: (node?: T, index?: number) => void) {
@@ -337,11 +306,10 @@ export interface ToDataURLOptions {
 const MAX_CANVAS_LENGTH = 4096;
 
 export async function toDataURL(options: ToSVGOptions & ToDataURLOptions): Promise<string> {
-    const {paper, mimeType = 'image/png'} = options;
+    const {mimeType = 'image/png'} = options;
     const svgOptions = {
         ...options,
         convertImagesToDataUris: true,
-        mockImages: isIE11(),
         preserveDimensions: true,
     };
     const svg = await exportSVG(svgOptions);
@@ -365,24 +333,9 @@ export async function toDataURL(options: ToSVGOptions & ToDataURLOptions): Promi
         options.backgroundColor,
     );
 
-    if (isIE11()) {
-        if (!canvg) {
-            throw new Error('"canvg-fixed" dependency required to support exporting in the IE.');
-        }
-        canvg(canvas, svgString, {
-            offsetX: offset.x,
-            offsetY: offset.y,
-            scaleWidth: innerSize.width,
-            scaleHeight: innerSize.height,
-            ignoreDimensions: true,
-            ignoreClear: true,
-        });
-        return canvas.toDataURL(mimeType, options.quality);
-    } else {
-        const image = await loadImage('data:image/svg+xml,' + encodeURIComponent(svgString));
-        context.drawImage(image, offset.x, offset.y, innerSize.width, innerSize.height);
-        return canvas.toDataURL(mimeType, options.quality);
-    }
+    const image = await loadImage('data:image/svg+xml,' + encodeURIComponent(svgString));
+    context.drawImage(image, offset.x, offset.y, innerSize.width, innerSize.height);
+    return canvas.toDataURL(mimeType, options.quality);
 
     function createCanvas(canvasWidth: number, canvasHeight: number, backgroundColor?: string) {
         const cnv = document.createElement('canvas');

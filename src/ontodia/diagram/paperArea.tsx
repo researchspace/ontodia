@@ -740,7 +740,6 @@ export class PaperArea extends React.Component<PaperAreaProps, State> {
             contentBox: this.getContentFittingBox(),
             getOverlayedElement: id => this.area.querySelector(`[data-element-id='${id}']`) as HTMLElement,
             preserveDimensions: true,
-            convertImagesToDataUris: true,
             elementsToRemoveSelector: '.ontodia-link__vertex-tools',
             watermarkSvg: this.props.watermarkSvg,
         };

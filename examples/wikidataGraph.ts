@@ -9,7 +9,7 @@ function onWorkspaceMounted(workspace: Workspace) {
     if (!workspace) { return; }
 
     const dataProvider = new SparqlDataProvider({
-        endpointUrl: '/wikidata',
+        endpointUrl: 'https://query.wikidata.org/sparql',
         imagePropertyUris: [
             'http://www.wikidata.org/prop/direct/P18',
             'http://www.wikidata.org/prop/direct/P154',

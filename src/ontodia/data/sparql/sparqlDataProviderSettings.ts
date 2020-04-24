@@ -107,8 +107,8 @@ export interface SparqlDataProviderSettings {
      *   - `${propertyConfigurations}`
      *
      * Expected output format for triples:
-     *   - `?inst rdf:type ?class` element has type
-     *   - `?inst rdfs:label ?label` element has label
+     *   - `?inst <https://ontodia.org/context/v1.json/type> ?class` element has type
+     *   - `?inst <https://ontodia.org/context/v1.json/label> ?label` element has label
      *   - `?inst ?property ?value` element has value for a datatype property
      */
     elementInfoQuery: string;
@@ -447,8 +447,8 @@ const WikidataSettingsOverride: Partial<SparqlDataProviderSettings> = {
 
     elementInfoQuery: `
         CONSTRUCT {
-            ?inst rdf:type ?class .
-            ?inst rdfs:label ?label .
+            ?inst <https://ontodia.org/context/v1.json/type> ?class .
+            ?inst <https://ontodia.org/context/v1.json/label> ?label .
             ?inst ?propType ?propValue.
         } WHERE {
             VALUES (?inst) {\${ids}}
@@ -551,8 +551,8 @@ export const OWLRDFSSettingsOverride: Partial<SparqlDataProviderSettings> = {
     `,
     elementInfoQuery: `
         CONSTRUCT {
-            ?inst rdf:type ?class .
-            ?inst rdfs:label ?label .
+            ?inst <https://ontodia.org/context/v1.json/type> ?class .
+            ?inst <https://ontodia.org/context/v1.json/label> ?label .
             ?inst ?propType ?propValue.
         } WHERE {
             VALUES (?inst) {\${ids}}
@@ -640,8 +640,8 @@ const DBPediaOverride: Partial<SparqlDataProviderSettings> = {
 
     elementInfoQuery: `
         CONSTRUCT {
-            ?inst rdf:type ?class .
-            ?inst rdfs:label ?label .
+            ?inst <https://ontodia.org/context/v1.json/type> ?class .
+            ?inst <https://ontodia.org/context/v1.json/label> ?label .
             ?inst ?propType ?propValue.
         } WHERE {
             VALUES (?inst) {\${ids}}

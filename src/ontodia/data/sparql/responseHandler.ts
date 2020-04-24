@@ -12,8 +12,10 @@ import {
 } from '../model';
 import { HashMap, getOrCreateSetInMap } from '../../viewUtils/collections';
 
-const LABEL_URI = 'http://www.w3.org/2000/01/rdf-schema#label';
-const RDF_TYPE_URI = 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type';
+// This URIs are used as predicates in the result of the elementInfoQuery construct query
+// to distinguish element labels and types.
+const LABEL_URI = 'https://ontodia.org/context/v1.json/label';
+const RDF_TYPE_URI = 'https://ontodia.org/context/v1.json/type';
 
 const EMPTY_MAP: ReadonlyMap<any, any> = new Map();
 

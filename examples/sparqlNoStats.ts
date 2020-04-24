@@ -34,8 +34,8 @@ function onWorkspaceMounted(workspace: Workspace) {
             },
             elementInfoQuery: `
             CONSTRUCT {
-                ?inst rdf:type ?class;
-                    rdfs:label ?label;
+                  ?inst <https://ontodia.org/context/v1.json/type> ?class;
+                    <https://ontodia.org/context/v1.json/label> ?label;
                     ?propType ?propValue.
             }
             WHERE {

@@ -16,8 +16,6 @@ export interface PaperAreaProps {
     view: DiagramView;
     zoomOptions?: ZoomOptions;
     hideScrollBars?: boolean;
-    watermarkSvg?: string;
-    watermarkUrl?: string;
     onDragDrop?: (e: DragEvent, paperPosition: { x: number; y: number }) => void;
     onZoom?: (scaleX: number, scaleY: number) => void;
 }
@@ -189,7 +187,7 @@ export class PaperArea extends React.Component<PaperAreaProps, State> {
     }
 
     render() {
-        const {view, watermarkSvg, watermarkUrl} = this.props;
+        const {view} = this.props;
         const {
             paperWidth, paperHeight, originX,
             originY, scale, paddingX, paddingY,
@@ -233,11 +231,6 @@ export class PaperArea extends React.Component<PaperAreaProps, State> {
                                 )}
                             </div>
                         } />
-                    {watermarkSvg ? (
-                        <a href={watermarkUrl} target='_blank' rel='noopener'>
-                            <img className={`${CLASS_NAME}__watermark`} src={watermarkSvg} draggable={false} />
-                        </a>
-                    ) : null}
                 </div>
                 {renderedWidgets.filter(w => w.attachment === WidgetAttachment.Viewport).map(widget => {
                     return React.cloneElement(widget.element, widgetProps);
@@ -741,7 +734,6 @@ export class PaperArea extends React.Component<PaperAreaProps, State> {
             getOverlayedElement: id => this.area.querySelector(`[data-element-id='${id}']`) as HTMLElement,
             preserveDimensions: true,
             elementsToRemoveSelector: '.ontodia-link__vertex-tools',
-            watermarkSvg: this.props.watermarkSvg,
         };
     }
 

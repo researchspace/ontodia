@@ -39,8 +39,6 @@ export interface WorkspaceMarkupProps {
     isLeftPanelOpen?: boolean;
     isRightPanelOpen?: boolean;
     onWorkspaceEvent?: WorkspaceEventHandler;
-    watermarkSvg?: string;
-    watermarkUrl?: string;
     elementsSearchPanel?: React.ReactElement<any>;
 }
 
@@ -175,8 +173,6 @@ export class WorkspaceMarkup extends React.Component<WorkspaceMarkupProps, {}> {
                         view={this.props.view}
                         zoomOptions={this.props.zoomOptions}
                         hideScrollBars={this.props.hideScrollBars}
-                        watermarkSvg={this.props.watermarkSvg}
-                        watermarkUrl={this.props.watermarkUrl}
                         onDragDrop={this.onDropOnPaper}
                         onZoom={this.props.onZoom}>
                     </PaperArea>

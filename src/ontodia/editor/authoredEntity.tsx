@@ -56,10 +56,8 @@ export class AuthoredEntity extends React.Component<AuthoredEntityProps, State> 
     }
 
     componentDidUpdate(prevProps: AuthoredEntityProps) {
-        const shouldUpdateAllowedActions = !(
-            this.props.templateProps.data === prevProps.templateProps.data &&
-            this.props.templateProps.isExpanded === prevProps.templateProps.isExpanded
-        );
+        const shouldUpdateAllowedActions =
+            this.props.templateProps.data !== prevProps.templateProps.data;
         if (shouldUpdateAllowedActions) {
             this.queryAllowedActions();
         }
@@ -81,9 +79,7 @@ export class AuthoredEntity extends React.Component<AuthoredEntityProps, State> 
     }
 
     private queryAllowedActions() {
-        const {isExpanded, data} = this.props.templateProps;
-        // only fetch whether it's allowed to edit when expanded
-        if (!isExpanded) { return; }
+        const {data} = this.props.templateProps;
         this.queryCancellation.abort();
         this.queryCancellation = new Cancellation();
 
